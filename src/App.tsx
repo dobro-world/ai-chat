@@ -11,7 +11,9 @@ type Message = {
 
 export default function App() {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [apiKey, setKey] = useState(localStorage.getItem('api-key') ?? '');
   const messagesRef = useRef<HTMLElement>(null);
+
   useEffect(() => {
     const el = messagesRef.current;
     if (!el) return;
@@ -40,6 +42,13 @@ export default function App() {
     setTextArea('');
   };
 
+  const handleKeySubmit = (e: SubmitEvent) => {
+    e.preventDefault();
+    const key = apiKey.trim();
+    localStorage.setItem('api-key', key);
+    setKey(key);
+  };
+
   const handleSubmit = (e: SubmitEvent) => {
     e.preventDefault();
     sendMessage();
@@ -52,10 +61,44 @@ export default function App() {
     }
   };
 
+  async function requestAnswer(text: string, apiKey: string): Promise<string> {
+    const url = 'https://openrouter.ai/api/v1/chat/completions';
+
+    const body = {
+      model: 'openrouter/free',
+      messages: [
+        {role: 'user', content: text},
+      ],
+    }
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+    })
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`Ошибка ${res.status}: ${errorText}`);
+    }
+
+    const data = await res.json();
+    const answer = data.choices[0].message.content;
+
+    return answer;
+  }
+  
+
   return (
     <div className='app'>
       <aside className='sidebar'>
-        sidebar
+        <form onSubmit={handleKeySubmit}>
+          <input type='password' value={apiKey} onChange={(e) => setKey(e.target.value)}></input>
+          <button type='submit'>Save</button>
+        </form>
       </aside>
       <main className='chat'>
         <section className='messages' ref={messagesRef}>
